@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Simple - Advanced Chat App</title>
+    <meta charset="utf-8"  />
+
+    <script>
+
+        // having some fun to create the first cookie in my life
+        function setCookie(cname,cvalue,exdays) {
+          var d = new Date();
+          d.setTime(d.getTime() + (exdays*24*60*60*1000));
+          var expires = "expires=" + d.toGMTString();
+          document.cookie = cname + "=" + cvalue + ";" + expires + ";" ;
+        }
+        
+        function getCookie(cname) {
+          var name = cname + "=";
+          var decodedCookie = decodeURIComponent(document.cookie);
+          var ca = decodedCookie.split(';');
+          for(var i = 0; i < ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) == ' ') {
+              c = c.substring(1);
+            }
+            if (c.indexOf(name) == 0) {
+              return c.substring(name.length, c.length);
+            }
+          }
+          return "";
+        }
+        
+        function checkCookie() {
+          var firstTime=getCookie("FirstTime");
+          if (firstTime) {
+            alert("welcome! first-time user");
+            setCookie("FirstTime", false, 1);
+          } else {
+              alert("Welcome again ");
+          }
+            
+        }
+        </script>
+
+</head>
+
+<body onload="checkCookie()">
+    <!-- The core Firebase JS SDK is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.2.1/firebase-firestore.js"></script>
+
+    <h1>Simple Chat</h1>
+
+    <label>Username:</label>
+    <input type="text" id="username" placeholder="Niu">
+    
+    <label>Message:</label>
+    <input type="text" id="message" placeholder="Hi Pati">
+    
+    <button id="send">Send</button>
+
+    <button onclick="deleteCookie()">Delete my cookie</button>
+    
+    <h3>Chat Messages:</h3>
+
+    <div id="messagesContainer">
+        <!-- We will display any messages here that we send/retrieve from Firestore -->
+    </div>
+
+    <script>
+      // Your web app's Firebase configuration
+        var firebaseConfig = {
+        apiKey: "AIzaSyALtHExr7jcs17pxlG65EqrMUmX6MRiZjY",
+        authDomain: "intro-to-webdev-chat-app-db1d5.firebaseapp.com",
+        projectId: "intro-to-webdev-chat-app-db1d5",
+        storageBucket: "intro-to-webdev-chat-app-db1d5.appspot.com",
+        messagingSenderId: "220496803408",
+        appId: "1:220496803408:web:60879041a65964546d4355"
+      };
+
+      // Initialize Firebase
+      firebase.initializeApp(firebaseConfig);
+      var firestore = firebase.firestore();
+      var collectionRef = firestore.collection('messages')
+
+
+         // Inputs
+        var inputUsername = document.getElementById("username")
+        var inputMessage = document.getElementById("message")
+        var sendButton = document.getElementById("send")
+
+        var apiKey = 'l4SVWwKuR2Bs9PerRjG5H3F4ROxCclnf'
+        var base_url = 'https://api.giphy.com/v1/gifs/random?api_key=' + apiKey + '&rating=g&lang=en&tag='
+            
+
+        // Output DIV
+        var messagesContainer = document.getElementById("messagesContainer")
+
+        var saveMessageToFirestore = (username, textToSave, bGiphyURL) => {
+            collectionRef.add({
+                username: username,
+                txt: textToSave,
+                timestamp: Date.now(),
+                bGiphyURL: bGiphyURL //THIS NEW FIELD TELLS US IF WE ARE SAVING A URL OR A TXT MESSAGE
+            }).then(() => {
+                console.log("Message Saved!");
+            }).catch((error) => {
+                console.log("Got and error:", error);
+            });
+        }
+        
+
+        sendButton.addEventListener("click", () => {                            
+            txt = inputMessage.value
+            // If the messages contains the '/giphy' only send the URL to the gif!
+            if(txt.indexOf('/giphy') == 0) {
+                console.log("String starts with the giphy command" + txt.indexOf('/giphy'))
+                
+                txt = txt.substring(7); // '/giphy ' is 7 characters long
+
+                url = base_url + encodeURI(txt)
+            
+                // User the JavaScript fetch API
+                fetch(url)
+                .then(response => response.json())
+                .then(myJson => {
+                    saveMessageToFirestore(inputUsername.value, myJson.data.image_url, true)
+                })
+                
+            } else {
+                saveMessageToFirestore(inputUsername.value, inputMessage.value, false)
+            }
+        })
+        
+        // Define a function to listen for real-time updates
+        var getRealTimeUpdates = () => {
+            
+            // All documents in our collection, messages, ordered from oldest to newest
+            var collectionQuery = firestore.collection('messages').orderBy('timestamp', 'desc').limit(5);
+            // console.log(collectionQuery)
+
+            collectionQuery.onSnapshot((snapshot) => {
+                console.log(snapshot)
+                
+                // Each snapshot contains one or more DocumentChange objects
+                // Loop through each document change
+                snapshot.docChanges().forEach((docChange) => {
+
+                    // Log the document change we detected
+                    console.log(docChange)
+
+                    // get the data for this document
+                    var data = docChange.doc.data()
+
+                    if(data.bGiphyURL) {
+                // Create a div with this username and message IMAGE the content.
+                
+                var div = document.createElement("DIV");   // Create a new <div> element
+                div.innerHTML = data.username + ": "; // Insert text for our username and message
+
+                var img = document.createElement("IMG");
+                img.src = data.txt
+                div.appendChild(img)
+                messagesContainer.appendChild(div); 
+            } else {
+                // Create a div with this username and message TEXT the content.
+                var div = document.createElement("DIV");   // Create a new <div> element
+                div.innerHTML = data.username + ": " + data.txt; // Insert text for our username and message
+                messagesContainer.appendChild(div); 
+            }                    
+        });
+    });
+}
+
+        getRealTimeUpdates()
+
+        function deleteCookie() {
+            document.cookie = "FirstTime=; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+            console.log("Cookie Deleted");
+        }
+        
+
+    </script>
+</body>
+</html>
